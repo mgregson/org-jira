@@ -31,6 +31,7 @@
 ;; http://docs.atlassian.com/software/jira/docs/api/rpc-jira-plugin/latest/com/atlassian/jira/rpc/soap/JiraSoapService.html
 
 (require 'soap-client)
+(require 'org-compat)
 
 (defgroup org-jira nil
 	"Jira/Org-Mode Integration"
@@ -54,11 +55,72 @@
 	:type 'string
 	:group 'org-jira)
 
+(defcustom org-jira-issue-keyword
+	"JIRA"
+	"Org-Jira Issue Keyword.
+
+Issues will look like:
+* (org-jira-issue-keyword) (summary)..."
+	:type 'string
+	:group 'org-jira)
+
+(defcustom org-jira-comment-keyword
+	"COMMENT"
+	"Org-Jira Comment Keyword
+
+Comments will look like:
+* (org-jira-comment-keyword) (author) spake at (time)..."
+	:type 'string
+	:group 'org-jira)
+
+(defcustom org-jira-prop-prefix
+	"JIRA"
+	"Org-Jira will prefix all Jira provided properties with the
+org-jira-prop-prefix."
+	:type 'string
+	:group 'org-jira)
+
 (defvar org-jira-wsdl nil)
 (defvar org-jira-filters nil)
 (defvar org-jira-resolutions nil)
 (defvar org-jira-auth-token nil)
 (defvar org-jira-service "jirasoapservice-v2")
+
+(defvar org-jira-issues-mode-keymap (make-sparse-keymap)
+	"Key bindings for org-jira-issues-mode.")
+
+(define-minor-mode org-jira-issues-mode
+	"Minor mode for org-jira issues buffer."
+	nil " Issues" org-jira-issues-mode-keymap
+	(org-set-local
+	 'header-line-format
+	 "Jira issues buffer.  Edit issue 'C-c e', add comment 'C-c c', refresh 'C-c C-r', new issue 'C-c C-n', change status/resolve 'C-c C-v'."))
+;; (define-key org-jira-issues-mode-keymap
+;; 	(kbd "C-c e") 'org-jira-edit-current-issue)
+(define-key org-jira-issues-mode-keymap
+	(kbd "C-c c") 'org-jira-comment-current-issue)
+;; (define-key org-jira-issues-mode-keymap
+;; 	(kbd "C-c C-r") 'org-jira-refresh-current-buffer)
+;; (define-key org-jira-issues-mode-keymap
+;; 	(kbd "C-c C-n") 'org-jira-new-issue)
+;; (define-key org-jira-issues-mode-keymap
+;; 	(kbd "C-c C-v") 'org-jira-change-state-current-issue)
+
+
+(defvar org-jira-input-mode-keymap (make-sparse-keymap)
+	"Key bindings for org-jira-input-mode.")
+
+(define-minor-mode org-jira-input-mode
+	"Minor mode for miscellaneous org-jira input buffers."
+	nil " OrgJira Input" org-jira-input-mode-keymap
+	(org-set-local
+	 'header-line-format
+	 "OrgJira input buffer.  Done editing 'C-c C-c', discard 'C-c C-k'."))
+(define-key org-jira-input-mode-keymap
+	(kbd "C-c C-c") 'org-jira-continue-from-input-buffer)
+(define-key org-jira-input-mode-keymap
+	(kbd "C-c C-k") 'org-jira-discard-from-input-buffer)
+
 
 (defun org-jira-set-host-url (url)
 	"Set the Jira Host URL when the user has failed to configure org-jira properly."
@@ -78,8 +140,9 @@
 	(unless org-jira-wsdl
 		(org-jira-load-wsdl))
 	(interactive
-	 (list (unless org-jira-username
-					 (read-string "Jira Username: ")
+	 (list (if org-jira-username
+						 org-jira-username
+					 (setq org-jira-username (read-string "Jira Username: "))
 					 org-jira-username)
 				 (read-passwd "Jira Password: ")))
 	(condition-case nil
@@ -149,24 +212,37 @@ constraint."
 		(while (> (length words) 0)
 			(let ((word (pop words)))
 				(if (<= (+ (length word) (length line) 1) line-width)
-						(setq line (concat line " " word))
+						(setq line (concat line (if (> (length line) 0) " " "") word))
 					(setq lines (append lines (list line)))
 					(setq line word))))
 		(setq lines (append lines (list line)))
 		lines))
+
+(defun org-jira-create-comment (key body)
+	"Add a new comment to an issue."
+	(interactive
+	 (list (read-string "Issue Key: ")
+				 (read-string "Comment: ")))
+	(condition-case nil
+			(car (org-jira-soap-call "addComment" key `((body . ,body))))))
 
 (defun org-jira-issue-comments (key)
 	"Fetch the comments list for a given issue key."
 	(condition-case nil
 			(car (org-jira-soap-call "getComments" key))))
 
-(defun org-jira-org-properties-from-alist (alist indent-by &optional excludes)
+(defun org-jira-org-properties-from-alist (alist
+																					 indent-by
+																					 &optional excludes
+																					 &key prefix)
 	"Convert an alist into a set of org properties, indented to the right level."
 	(unless (listp excludes)
 		(setq excludes '()))
+	(setq prefix
+				(concat org-jira-prop-prefix "-" (if (stringp prefix) (concat prefix "-") "")))
 	(let ((line-indent (make-string indent-by ? )))
 		(concat line-indent ":PROPERTIES:\n"
-						(mapconcat (lambda (p) (concat line-indent ":JIRA-"
+						(mapconcat (lambda (p) (concat line-indent ":" prefix
 																					 (upcase (symbol-name (car p)))
 																					 ": " (cdr p)))
 											 (delq nil (mapcar (lambda (p) (and (not (or (memq (car p) excludes)
@@ -189,10 +265,11 @@ constraint."
 			(setq author "nobody"))
 		(unless date
 			(setq date "sometime"))
-		(concat (make-string depth ?*) " " author " spake at " date "\n"
+		(concat (make-string depth ?*) " " org-jira-comment-keyword " " author " spake at " date "\n"
 						(org-jira-org-properties-from-alist comment
 																								(+ depth 1)
-																								'(body))
+																								'(body)
+																								:prefix "COMMENT")
 						(mapconcat (lambda (x) (concat line-indent x))
 											 (org-jira-wrap-line-list body (- 80 (+ depth 1)))
 											 "\n")
@@ -209,32 +286,97 @@ constraint."
 			(setq description ""))
 		(unless (stringp summary)
 			(setq summary ""))
-		(concat (make-string depth ?*) " JIRA " summary "\n"
-						(org-jira-org-properties-from-alist issue (+ depth 1) '(summary
-																																		description
-																																		customFieldValues))
+		(concat (make-string depth ?*) " " org-jira-issue-keyword " " summary "\n"
+						(org-jira-org-properties-from-alist issue
+																								(+ depth 1)
+																								'(summary
+																									description
+																									customFieldValues)
+																								:prefix "ISSUE")
 						(mapconcat (lambda (x) (concat line-indent x))
 											 (org-jira-wrap-line-list description (- 80 (+ depth 1)))
 											 "\n")
 						(if (> (length description) 0) "\n\n" "\n"))))
 
-(defun org-jira-org-buffer-from-issues (filename issues)
-	"Produce an org file from a list of Jira issues.  Destroys issues list."
+(defun org-jira-org-buffer-from-issues (issues)
+	"Produce an org buffer from a list of Jira issues.  Destroys issues list."
 	(set-buffer (generate-new-buffer "org-jira-issues"))
-	(with-current-buffer
-			(local-set-key (kbd "C-c C-c") 'org-jira-send-updates)
-		(local-set-key (kbd "C-c C-n") 'org-jira-new-issue)
-		(local-set-key (kbd "C-c C-m") 'org-jira-new-message)
-		(local-set-key (kbd "C-c C-k") 'kill-this-buffer)
-		(local-set-key (kbd "C-c C-r") 'org-jira-resolve)
-		(local-set-key (kbd "C-c c") 'org-jira-change-state)
-		(org-mode)
-		(while (> (length issues) 0)
-			(let* ((issue (pop issues))
-						 (issue-key (cdr (assoc 'key issue))))
-				(message 
-				 (insert (org-jira-org-from-issue issue))
-				 (mapc (lambda (comment) (insert (org-jira-org-from-issue-comment comment)))
-							 (org-jira-issue-comments issue-key)))))))
+	(org-mode)
+	(org-jira-issues-mode)
+	(while (> (length issues) 0)
+		(let* ((issue (pop issues))
+					 (issue-key (cdr (assoc 'key issue))))
+			(insert (org-jira-org-from-issue issue))
+			(mapc (lambda (comment) (insert (org-jira-org-from-issue-comment comment)))
+						(org-jira-issue-comments issue-key))))
+	(org-pop-to-buffer-same-window (current-buffer)))
+
+(defun org-jira-org-buffer-from-jql (jql)
+	"Display an org buffer containing the results of a JQL query."
+	(interactive (list (read-string "Query: ")))
+	(org-jira-org-buffer-from-issues (org-jira-issues-from-jql jql 1000))
+	(org-set-local 'org-jira-jql-query jql))
+
+(defun org-jira-current-issue-key ()
+	"Key the Jira Issue Key for the issue the point is currently in."
+	(interactive)
+	(let ((key-prop (concat org-jira-prop-prefix "-ISSUE-KEY")))
+		(save-excursion
+			(org-entry-get (point-marker)
+										 key-prop
+										 t))))
+(defun org-jira-current-issue-add-comment (comment)
+	"Add a comment to the current issue."
+	(org-jira-create-comment (org-jira-current-issue-key)
+													 comment))
+
+(defun org-jira-continue-with-input-buffer (cont-fun)
+	"Throws up an input buffer, provides the user some instructions, and runs the
+provided cont-fun when the user signals completion.  Returns to the current
+buffer at the end."
+	(let ((old-buffer (current-buffer))
+				(my-buffer (generate-new-buffer "*OrgJira Input Buffer*")))
+		(set-buffer my-buffer)
+		(org-jira-input-mode)
+		(org-set-local 'result-fun cont-fun)
+		(org-set-local 'orig-buffer old-buffer)
+		(org-pop-to-buffer-same-window my-buffer)))
+
+(defun org-jira-continue-from-input-buffer ()
+	"Resume processing after receiving input from the input buffer."
+	(interactive)
+	(let ((my-buffer (current-buffer)))
+		(funcall result-fun (buffer-string))
+		(set-buffer orig-buffer)
+		(org-pop-to-buffer-same-window (current-buffer))
+		(kill-buffer my-buffer)))
+
+(defun org-jira-discard-from-input-buffer ()
+	"Discard input received from the input buffer."
+	(interactive)
+	(let ((my-buffer (current-buffer)))
+		(set-buffer orig-buffer)
+		(org-pop-to-buffer-same-window (current-buffer))
+		(kill-buffer my-buffer)))
+
+				
+
+(defun org-jira-comment-current-issue (&optional comment)
+	"Add a comment to the current issue."
+	(interactive)
+	(if comment
+			(org-jira-current-issue-add-comment comment)
+		(let ((issue-key (org-jira-current-issue-key)))
+			(org-jira-continue-with-input-buffer
+			 `(lambda (x)
+					(org-jira-create-comment ,issue-key x))))))
+																	
+
+(defun org-jira-refresh-current-buffer ()
+	"Refresh the content of the current buffer by repeating the JQL query that
+generated the issues listed."
+	(interactive)
+	'())
+	
 
 (provide 'org-jira)
