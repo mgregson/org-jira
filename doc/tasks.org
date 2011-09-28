@@ -1,0 +1,7 @@
+* Tasks
+** TODO Implement buffer/query refresh
+** TODO Implement issue editing
+** TODO Implement issue status changes
+** TODO Implement understanding of issue states
+** TODO Tie this file to a Jira instance using org-jira
+
