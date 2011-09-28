@@ -1,0 +1,4 @@
+* Why?
+	- org-mode is amazing.
+	- Jira is alright, and people seem to like it.
+	- I do everything else from Emacs, why not this?
