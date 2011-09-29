@@ -94,11 +94,14 @@ org-jira-prop-prefix."
 	nil " Issues" org-jira-issues-mode-keymap
 	(org-set-local
 	 'header-line-format
-	 "Jira issues buffer.  Edit issue 'C-c e', add comment 'C-c c', refresh 'C-c C-r', new issue 'C-c C-n', change status/resolve 'C-c C-v'."))
+	 "Jira issues buffer.  Edit issue 'C-c e', add comment 'C-c c', refresh 'C-c C-r',
+new issue 'C-c C-n', change status/resolve 'C-c C-v', assign to 'C-c C-a'."))
 ;; (define-key org-jira-issues-mode-keymap
 ;; 	(kbd "C-c e") 'org-jira-edit-current-issue)
 (define-key org-jira-issues-mode-keymap
 	(kbd "C-c c") 'org-jira-comment-current-issue)
+(define-key org-jira-issues-mode-keymap
+	(kbd "C-c C-a") 'org-jira-assign-current-issue)
 ;; (define-key org-jira-issues-mode-keymap
 ;; 	(kbd "C-c C-r") 'org-jira-refresh-current-buffer)
 ;; (define-key org-jira-issues-mode-keymap
@@ -225,6 +228,17 @@ constraint."
 				 (read-string "Comment: ")))
 	(condition-case nil
 			(car (org-jira-soap-call "addComment" key `((body . ,body))))))
+
+(defun org-jira-assign-issue (key assignee)
+	"Assign an issue to a user."
+	(interactive
+	 (list
+		(read-string "Issue Key: ")
+		(read-string "Assign To: ")))
+	(condition-case nil
+			(org-jira-soap-call "updateIssue"
+													key
+													(vector `((id . "assignee") (values . ,(vector assignee)))))))
 
 (defun org-jira-issue-comments (key)
 	"Fetch the comments list for a given issue key."
@@ -371,6 +385,11 @@ buffer at the end."
 			 `(lambda (x)
 					(org-jira-create-comment ,issue-key x))))))
 																	
+
+(defun org-jira-assign-current-issue (user)
+	"Assign the current issue to someone."
+	(interactive (list (read-string "Assign To: ")))
+	(org-jira-assign-issue (org-jira-current-issue-key) user))
 
 (defun org-jira-refresh-current-buffer ()
 	"Refresh the content of the current buffer by repeating the JQL query that
