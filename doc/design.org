@@ -1,0 +1,45 @@
+#+DRAWERS: PROPERTIES
+
+* IDEA Remote vs Local Issue Tracking
+	If a local file is stored representing a remote issue tracking system...
+
+** Working online?
+	 Let's start off by assuming that while a developer is working they always have
+	 access to the remote tracking system, and that this system is fast and
+	 reliable.
+
+*** What happens when an issue is changed remotely?
+		How will the local system become aware of changes?  When?
+**** Periodically poll?																									 :no:
+		 - Disrupts workflow - wanderlust becomes unresponsive when fetching mail
+			 which is very frustrating.  We shouldn't do this if there is any
+			 alternative.
+		 - Only partially adresses the problem.  Things still diverge between polls.
+**** Poll when the developer interacts with issue system?
+		 - Less disruptive - only comes up when interacting with issue tracking
+		 - Allows systems to diverge significantly - developer may be surprised by
+			 extensive changes.
+			 - This doesn't seem to be a new problem.
+		 - May be slow if the remote system is slow or the dataset is large.
+			 - Is this worse than working with the remote system directly?
+
+** Working offline?
+	 What happens if the developer is working offline?
+
+*** What happens when the developer has changes to make to issues?
+**** Disallow editing?
+		 - This may be confusing.
+		 - Pretty much eliminates usefulness of storing issues locally.
+		 - Reasonably easy to implement.
+**** Accumulate and apply later?
+		 - Difficult semantics
+			 - What if both have changed?
+		 - Would be really cool/useful for working offline.
+		 - Maybe a partial system could work?
+			 - Only allow creation of new issues?
+			 - Maybe we can accumulate and squash comments?
+			 - Use an org property to mark things as local-only
+			 - Opens the door to hybrid systems - some local-only + some remote
+
+*** What happens when the remote system changes?
+**** Is this a problem?
