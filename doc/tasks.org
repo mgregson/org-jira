@@ -1,7 +1,7 @@
 #+DRAWERS: PROPERTIES SELECTION
 
 * Tasks
-** TODO Implement buffer/query refresh
+** DONE Implement buffer/query refresh
 ** TODO Implement issue editing
 ** TODO Implement issue status changes
 ** TODO Implement understanding of issue states
