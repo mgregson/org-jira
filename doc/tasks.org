@@ -4,4 +4,55 @@
 ** TODO Implement issue status changes
 ** TODO Implement understanding of issue states
 ** TODO Tie this file to a Jira instance using org-jira
+** TODO Update code to use org-jira-issues-limit instead of hardcoded values.
+   :PROPERTIES:
+   :Created: <2011-09-30 Fri 12:19>
+   :Origin-File: [[file:org-jira.el][org-jira.el]]
+   :END:
+   :SELECTION:
+   (defcustom org-jira-issues-limit
+     30
+     "Org-Jira will request at most this org-jira-issues-limit issues from Jira at
+   a time."
+     :type 'int
+     :group 'org-jira)
+   :END:
+** TODO Abstract out general issue-tracking functions to generalize org-jira.
+   :PROPERTIES:
+   :Created: <2011-09-30 Fri 12:20>
+   :Origin-File: [[file:org-jira.el][org-jira.el]]
+   :END:
+   :SELECTION:
+   
+   :END:
+	 
+	 It would be really cool if org-jira could become a general-purpose wrapper
+	 around many issue tracking systems, where the base system handles the org
+	 translation and uses plugins to talk to each specific issue tracking system.
 
+	 Up first: github.com!
+** TODO Fix line wrapping code so that it doesn't ignore existing line break.
+   :PROPERTIES:
+   :Created: <2011-09-30 Fri 12:23>
+   :Origin-File: [[file:org-jira.el][org-jira.el]]
+   :END:
+   :SELECTION:
+   
+   :END:
+	 
+	 Currently the line wrapping function ignores line breaks that already exist
+	 in the text and re-wraps everything.  This is bad.  The function should
+	 instead ony re-wrap text that exceeds the maximum text width (should default
+	 to 80 columns).
+** TODO Implement ticket creation
+   :PROPERTIES:
+   :Created: <2011-09-30 Fri 18:24>
+   :Origin-File: [[file:org-jira.el][org-jira.el]]
+   :END:
+   :SELECTION:
+   
+   :END:
+
+	 Ticket creation should probably be implemented via an org-capture template.
+	 I suspect that the template will need to be generated from data collected bia
+	 the SOAP interface, but maybe we can get away with a static template.
