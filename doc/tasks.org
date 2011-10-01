@@ -1,3 +1,5 @@
+#+DRAWERS: PROPERTIES SELECTION
+
 * Tasks
 ** TODO Implement buffer/query refresh
 ** TODO Implement issue editing
