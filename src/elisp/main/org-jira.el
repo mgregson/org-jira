@@ -43,6 +43,13 @@
 	:type 'string
 	:group 'org-jira)
 
+(defcustom org-jira-issues-limit
+	30
+	"Org-Jira will request at most this org-jira-issues-limit issues from Jira at
+a time."
+	:type 'int
+	:group 'org-jira)
+
 (defcustom org-jira-outgoing-buffer-file
 	"~/org/jira/outgoing.org"
 	"Org-Jira buffers outgoing Jira issues for later dispatch."
@@ -94,16 +101,15 @@ org-jira-prop-prefix."
 	nil " Issues" org-jira-issues-mode-keymap
 	(org-set-local
 	 'header-line-format
-	 "Jira issues buffer.  Edit issue 'C-c e', add comment 'C-c c', refresh 'C-c C-r',
-new issue 'C-c C-n', change status/resolve 'C-c C-v', assign to 'C-c C-a'."))
+	 "Edit: 'C-c e', Comment: 'C-c c', Refresh: 'C-c C-r', New: 'C-c C-n', Resolve: 'C-c C-v', Assign: 'C-c C-a'."))
 ;; (define-key org-jira-issues-mode-keymap
 ;; 	(kbd "C-c e") 'org-jira-edit-current-issue)
 (define-key org-jira-issues-mode-keymap
 	(kbd "C-c c") 'org-jira-comment-current-issue)
 (define-key org-jira-issues-mode-keymap
 	(kbd "C-c C-a") 'org-jira-assign-current-issue)
-;; (define-key org-jira-issues-mode-keymap
-;; 	(kbd "C-c C-r") 'org-jira-refresh-current-buffer)
+(define-key org-jira-issues-mode-keymap
+	(kbd "C-c C-r") 'org-jira-refresh-current-buffer)
 ;; (define-key org-jira-issues-mode-keymap
 ;; 	(kbd "C-c C-n") 'org-jira-new-issue)
 ;; (define-key org-jira-issues-mode-keymap
@@ -312,17 +318,26 @@ constraint."
 											 "\n")
 						(if (> (length description) 0) "\n\n" "\n"))))
 
+(defun org-jira-fill-buffer-with-issues (issues &optional buffer)
+	(unless buffer
+		(setq buffer (current-buffer)))
+	(save-excursion
+		(set-buffer buffer)
+		(erase-buffer)
+		(while (> (length issues) 0)
+			(let* ((issue (pop issues))
+						 (issue-key (cdr (assoc 'key issue))))
+				(insert (org-jira-org-from-issue issue))
+				(mapc (lambda (comment) (insert (org-jira-org-from-issue-comment comment)))
+							(org-jira-issue-comments issue-key))))))
+
+
 (defun org-jira-org-buffer-from-issues (issues)
 	"Produce an org buffer from a list of Jira issues.  Destroys issues list."
 	(set-buffer (generate-new-buffer "org-jira-issues"))
 	(org-mode)
+	(org-jira-fill-buffer-with-issues issues)
 	(org-jira-issues-mode)
-	(while (> (length issues) 0)
-		(let* ((issue (pop issues))
-					 (issue-key (cdr (assoc 'key issue))))
-			(insert (org-jira-org-from-issue issue))
-			(mapc (lambda (comment) (insert (org-jira-org-from-issue-comment comment)))
-						(org-jira-issue-comments issue-key))))
 	(org-pop-to-buffer-same-window (current-buffer)))
 
 (defun org-jira-org-buffer-from-jql (jql)
@@ -344,13 +359,15 @@ constraint."
 	(org-jira-create-comment (org-jira-current-issue-key)
 													 comment))
 
-(defun org-jira-continue-with-input-buffer (cont-fun)
+(defun org-jira-continue-with-input-buffer (cont-fun &optional template)
 	"Throws up an input buffer, provides the user some instructions, and runs the
 provided cont-fun when the user signals completion.  Returns to the current
 buffer at the end."
 	(let ((old-buffer (current-buffer))
 				(my-buffer (generate-new-buffer "*OrgJira Input Buffer*")))
 		(set-buffer my-buffer)
+		(when template
+			(insert template))
 		(org-jira-input-mode)
 		(org-set-local 'result-fun cont-fun)
 		(org-set-local 'orig-buffer old-buffer)
@@ -395,7 +412,14 @@ buffer at the end."
 	"Refresh the content of the current buffer by repeating the JQL query that
 generated the issues listed."
 	(interactive)
-	'())
-	
+	(org-jira-fill-buffer-with-issues (org-jira-issues-from-jql org-jira-jql-query 1000)))
 
+(defun org-jira-new-issue ()
+	"Create a new Jira issue by editing the issue template in a buffer."
+	(interactive)
+	(org-jira-continue-with-input-buffer
+	 (lambda (x)
+		 (org-jira-create-issue x))
+	 (org-jira-org-from-issue org-jira-default-new-issue)))
+		 
 (provide 'org-jira)
