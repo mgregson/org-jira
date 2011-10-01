@@ -207,7 +207,7 @@ org-jira-prop-prefix."
 (defun org-jira-fetch-my-issues (&optional count)
 	"Fetch all Jira issues assigned to the current user."
 	(unless (numberp count)
-		(setq count 10000))
+		(setq count org-jira-issues-limit))
 	(org-jira-issues-from-jql "assignee = currentUser()" count))
 
 (defun org-jira-wrap-line-list (string line-width)
@@ -343,7 +343,7 @@ constraint."
 (defun org-jira-org-buffer-from-jql (jql)
 	"Display an org buffer containing the results of a JQL query."
 	(interactive (list (read-string "Query: ")))
-	(org-jira-org-buffer-from-issues (org-jira-issues-from-jql jql 1000))
+	(org-jira-org-buffer-from-issues (org-jira-issues-from-jql jql org-jira-issues-limit))
 	(org-set-local 'org-jira-jql-query jql))
 
 (defun org-jira-current-issue-key ()
@@ -412,7 +412,7 @@ buffer at the end."
 	"Refresh the content of the current buffer by repeating the JQL query that
 generated the issues listed."
 	(interactive)
-	(org-jira-fill-buffer-with-issues (org-jira-issues-from-jql org-jira-jql-query 1000)))
+	(org-jira-fill-buffer-with-issues (org-jira-issues-from-jql org-jira-jql-query org-jira-issues-limit)))
 
 (defun org-jira-new-issue ()
 	"Create a new Jira issue by editing the issue template in a buffer."

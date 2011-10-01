@@ -6,7 +6,7 @@
 ** TODO Implement issue status changes
 ** TODO Implement understanding of issue states
 ** TODO Tie this file to a Jira instance using org-jira
-** TODO Update code to use org-jira-issues-limit instead of hardcoded values.
+** DONE Update code to use org-jira-issues-limit instead of hardcoded values.
    :PROPERTIES:
    :Created: <2011-09-30 Fri 12:19>
    :Origin-File: [[file:org-jira.el][org-jira.el]]
